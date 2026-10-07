@@ -1,0 +1,47 @@
+name: Validate MapLibre PR 8622 refresh
+
+on:
+  push:
+    branches:
+      - ci/refresh-maplibre-8622
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint and typecheck
+        run: |
+          npm run lint -- --max-warnings 0
+          npm run generate-typings
+          npm run typecheck
+
+      - name: Focused unit tests
+        run: npm run test-unit -- src/geo/lng_lat_bounds.test.ts src/ui/map_tests/map_bounds.test.ts
+
+      - name: Build production bundles
+        run: npm run build-dist
+
+      - name: Measure refreshed bundle baseline
+        run: |
+          UPDATE=true npm run test-build -- min.test.ts
+          echo "BUNDLE_SIZE_JSON_START"
+          cat test/build/bundle_size.json
+          echo "BUNDLE_SIZE_JSON_END"
+          npm run test-build -- min.test.ts
